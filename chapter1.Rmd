@@ -11,3 +11,17 @@ date()
 ```
 The text continues here.
 
+I have really enjoyed the start of this course. As a PhD student, I feel that when starting my PhD I had to dive into the deep end of R, starting quite early on with for example single cell analysis, WES and WGS data and I did not really have so much time to focus on the basics. 
+
+I liked the set-up of the exercise set, it is user friendly and nice to go back to the basics. Some was quite repetitive and some types of plots I won't ever use in my own research, but I guess it's good to know in general. 
+
+I liked the trick about not leaving install.packages in the code but rather commenting it out and then selecting it later, this was useful. 
+
+I didn't really understand the examples with the dates. 
+
+Pivot_longer was aslo useful, many times I striggle with this and try to google how to do it again. 
+
+I hope I will get back to the basics with this course, and I feel the exercise active workbook is a good resource for later on when you forget how to do something.
+
+
+my github: https://github.com/nygr/IODS-project
