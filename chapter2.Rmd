@@ -1,13 +1,122 @@
-# Insert chapter 2 title here
+# Week 2 Exercise set - Analysis: Regression and model validation
+#Petra Nygren
+
 
 *Describe the work you have done this week and summarize your learning.*
 
-- Describe your work and results clearly. 
-- Assume the reader has an introductory course level understanding of writing and reading R code as well as statistical methods.
-- Assume the reader has no previous knowledge of your data or the more advanced methods you are using.
 
 ```{r}
 date()
 ```
+"Sun Nov 12 12:27:17 2023"
 
-Here we go again...
+
+Read in data needed for exercise
+
+```{r}
+# set working directory and read in previously created csv file
+setwd("/Users/nygrpetr/Desktop/iods/iods_petra/")
+my_data <- read.csv("data/learning2014.csv") 
+
+```
+
+The dataset we are using in this exercise consists of learning data of students. It contains the gender (male or female), age (numerical value) of the students. Variables "deep", "strategic" and "surface" give information about the study approach the students used (deep learning, strategic learning or surface learning). The values are means, and variables having the value 0 have been omitted. Points tells us about the exam points received by that person and attitude a numerical value to represent the attitude of the person towards statistics. The dataset contains information in integer, numerical and character classes.
+
+```{r}
+# explore dimensions dim() (number of rows and columns) and structure str() of the data
+dim(my_data)
+str(my_data)
+
+#Remove extra variable "X"
+my_data$X <- NULL
+
+
+```
+
+Besides the age of the subjects, other variable appear to have normal distrubtions. For age, most subjects are between 20 and 25 years and the data has a right-skewed distribution, median age is 22 years. Attitude, points are the most clearly normally distributed and symmetrical, whereas deep and surface have slight skews in their distributions.
+
+Exam points and attitude have the most clear positive correlation - higher attitude points seem to correlate with higher exam points. 
+
+
+
+```{r}
+
+# install (if not yet installed) and load library 
+# install.packages("ggplot2")
+# install.packages("GGally")
+library(ggplot2)
+library(GGally)
+
+#Plots some histograms to check distributions of the data
+hist(my_data$age)
+hist(my_data$attitude)
+hist(my_data$deep)
+hist(my_data$surface)
+hist(my_data$strategic)
+hist(my_data$points)
+
+#See summary of the data
+summary(my_data)
+
+#Graphical overview
+#Pairs creates a matrix of plots showing correlations between numerical variables. The first variable, gender, is subsetted out because it is a non-numerical variable
+pairs(my_data[,-1])
+
+#Alternatively ggpairs can be used to create a plot matrix
+ggpairs(my_data, mapping = aes(col = gender, alpha = 0.3), lower = list(combo = wrap("facethist", bins = 20)))
+
+
+```
+From the graphical overview, we are able to see that attitude, strategic learning and surface learning are the top 3 varaibles which have a correlation with exam points. Of these, attitude has the strongest correlation and surface learning the weakest (visually inspected). Now we fit a linear model using these three variables and points as the response variable
+
+```{r}
+# fit a model with three 
+model <- lm(points ~ attitude + surface + strategic, data = my_data)
+
+# print out summary
+summary(model)
+
+#### Only attitude is significant so we try again with only attitude
+model_new <- lm(points ~ attitude, data = my_data)
+
+# print out summary
+summary(model_new)
+```
+
+```
+Of the used input variables, only attitude towards statistics had a significant effect on the exam points so we ran a new model with only attitude towards statistics as input variable and exam points as response variable.When attitude increases, exam points increase by 0.35units.R-squared is a measure of how well the model fits the data. It ranges from 0 to 1, with higher values indicating a better fit. With this model, we get the result that R squared is 0.1906, so 19% of changes in exam points can be explained by our input, attitude variable. Thus, there are other variables that contribute around 80% to the exam points that are not available in this dataset. My conclusion from this linear model is that students with more positive attitudes towards statistics achieve higher exam points, but attitude alone is not enough to explain good exam success.
+
+
+```{r}
+
+# Diagnostic plots using plot() function
+par(mfrow=c(2,2))
+plot(model_new)
+
+
+```
+
+A linear model has several assumptions that must be met in order for the results to be valid. It assumes that:
+1.the relationship between two variables in linear
+2.the tested variables are independant
+3. data is normally distributed and
+4. Homoscedasticity: The residuals have constant variance at every level of the independent variable(s). This means that the variance of the residuals is the same across all levels of the independent variable(s).
+
+Above, we used R's plot() function to test if our data fills these assumptions. 
+
+The plot() function produces by default, four diagnostic plots by. The first plot is the Residuals vs Fitted plot, which is the plot of the residuals against the fitted values. This plot is used to check for non-linear patterns in the residuals. If there is a clear pattern in the residuals, it suggests that the linear regression model may not be appropriate for the data. In the plot we have plotted, there is no clear pattern so I think our data fills the assumption of linear relationship
+
+The second plot is the QQ-plot, which is used to check for normal distribution. If the residuals are normally distributed, the points in the QQ-plot should fall along a straight line. If the points deviate from a straight line, it suggests that the residuals are not normally distributed. In our data, the points generally follow the straight line so I would say our data follows teh normal distrubution. There is some deviation toward the bottom and top of the plot but I would allow this.
+
+The third  plot is the Scale-Location plot, which is used to check for homoscedasticity. Homoscedasticity means that the variance of the residuals is constant across all levels of the predictor variables. In the plot, the red line represents the fitted values, and the blue line represents the square root of the absolute residuals. If the red line is roughly horizontal  it suggests that the residuals have constant variance.In our plot, the red line I would intrepret is mostly horizontal so we can assume our data is homoscedastic.
+
+The fourth plot is the Residuals vs Leverage plot, which is used to identify influential observations. An observation is influential if it has a large residual and/or a high leverage value. In general, an observation is influential if it has a large effect on the slope of the regression line. In the plot, the Cook’s distance is used to identify influential observations. If an observation has a Cook’s distance greater than 1, it is considered influential. In our data it seems there may be some influential outlier observations that have high effect on the line, so in order to produce an accurate result, outliers should be removed and the analysis repeated. However, in the interest of time I have not proceeded with those steps.
+
+
+Information on the assumptions and plot types was found on 
+1. statology.org
+2. geeksforgeeks.org
+3. upgrad.com
+
+
+
