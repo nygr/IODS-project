@@ -1,9 +1,6 @@
 # Week 3 exercises
 
-
-
 ---
-title: "chapter3.Rmd"
 output: html_document
 date: "2023-11-13"
 ---
