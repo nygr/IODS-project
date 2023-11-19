@@ -1,0 +1,106 @@
+# Week 3 exercises
+
+
+
+---
+title: "chapter3.Rmd"
+output: html_document
+date: "2023-11-13"
+---
+
+```{r}
+# set working directory and read in previously created txt file
+setwd("/Users/nygrpetr/Desktop/iods/iods_petra/")
+alc_data <- read.csv("data/alc_data.csv") 
+print(colnames(alc_data))
+```
+The dataset we are using includes data on students' achievement in secondary education of two schools in Portugal. The variables include student grades, demographic such as mother and father education, social and school related features. The two datasets concern different subjects: Mathematics (mat) and Portuguese language (por). We have added a column alc_use which is the average of weekday and weekend alcohol use. 
+
+Here, we aim to study the relationships between alcohol use and the variables in the data. 
+The purpose of your analysis is to study the relationships between high/low alcohol consumption and some of the other variables in the data. To do this, choose 4 interesting variables in the data and for each of them, present your personal hypothesis about their relationships with alcohol consumption. 
+
+I chose to study 4 variables: sex, Pstatus, Medu (mother's education) and health. I hypothesize that
+1) Male sex will correlate with higher alcohol use
+2) Pstatus - students with parents who live together would use less alcohol
+3) Students whose mothers are highly educated would use less alcohol
+4) Students with better health status use less alchohol
+
+Next, we will explore the distributions of the previously mentioned variables and their association with alcohol use
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+ggplot(alc_data, aes(sex)) + geom_bar()
+ggplot(alc_data, aes(Pstatus)) + geom_bar()
+ggplot(alc_data, aes(Medu)) + geom_bar()
+ggplot(alc_data, aes(health)) + geom_bar()
+
+```
+In the dataset, there are more female students than male, most of the students' parents live together, more students have highly educated mothers than lowly educated, and more students have the highest degree of health than the lowest degree
+
+```{r}
+
+#Check what proprotions of students in each category (sex: M/F, Pstatus: T/A, Medu: high values to low values, health: low val to high) belong to high alcohol use group
+alc_data %>% group_by(sex, high_use) %>% summarise(count = n()) %>% mutate(prop = count / sum(count))
+alc_data %>% group_by(Pstatus, high_use) %>% summarise(count = n()) %>% mutate(prop = count / sum(count))
+alc_data %>% group_by(Medu, high_use) %>% summarise(count = n()) %>% mutate(prop = count / sum(count))
+alc_data %>% group_by(health, high_use) %>% summarise(count = n()) %>% mutate(prop = count / sum(count))
+
+ggplot(data = alc_data, aes(x = sex, fill = high_use)) +
+  geom_bar(position = "dodge")
+
+ggplot(data = alc_data, aes(x = Pstatus, fill = high_use)) +
+  geom_bar(position = "dodge")
+
+ggplot(data = alc_data, aes(x = Medu, fill = high_use)) +
+  geom_bar(position = "dodge")
+
+ggplot(data = alc_data, aes(x = health, fill = high_use)) +
+  geom_bar(position = "dodge")
+
+
+```
+My prediction of sex and alcohol use seems to have some truth behind it, with Pstatus there seems to be equal proportions of high and low alc use in children of parents who cohabitate and thsoe who do not. Contrary to my prediction, based on visual analysis of the data it seems that students with more highly educated mothers seem to drink more alcohol and those with better health seem to also drink more alcohol so I doubt my hypothesis' concerning those. 
+
+Next, we will run a regression model to test the relationships between the variables and alcohol use. We will process factor variables and categorical variables in a different way.
+
+```{r}
+#Turn Medu and health into factors to enable them to be used in the model
+alc_data$Medu <- factor(alc_data$Medu)
+alc_data$health<- factor(alc_data$health)
+
+#Run regression model
+my.mod <- glm(high_use ~ sex + Pstatus + Medu + health, data = alc_data, family = "binomial")
+
+summary(my.mod)
+
+#Compute odds ratios and confidence intervals, print the results
+OR <- coef(my.mod) %>% exp
+CI <- confint(my.mod) %>% exp
+
+cbind(OR, CI)
+
+```
+Of our 4 chosen variables, only sex had a statistically significant effect on alcohol use. Male sex was associated with increase of high_use response variable being TRUE (high_use) by 0.90043. Odds ratio is a "relative measure of effect", which allows the comparison of the test group of a study relative to the control, variables with odds ratio = 1 do not have a statistically significant effect on the output variable , the odds ratio for sex is the only one which is above 1, being 2.46 with confidence intervals of 1.5517890 to 3.9421063. 
+
+Next we will use only the variable "sex" which was the only significant one to fit a new model, and use it to predict probabilities of high use tehn compare it to the actual values to investigate the predictive power of the model. 
+
+```{r}
+
+new.mod <- glm(high_use ~ sex, data = alc_data, family = "binomial")
+probabilities <- predict(new.mod, type = "response")
+
+#Add column for probabilities, use it to make predictions of high use, and get teh last 10 values
+alc_data <- mutate(alc_data, probability = probabilities)
+alc_data <- mutate(alc_data, prediction = probability > 0.5)
+select(alc_data, sex, high_use, probability, prediction) %>% tail(10)
+
+#Make a table
+table(high_use = alc_data$high_use, prediction = alc_data$prediction) 
+
+prop.table(table(high_use = alc_data$high_use, prediction = alc_data$prediction)) * 100
+
+```
+I would say the the model is good but not great for this data, 259 observations with FALSE for high use corresponded to the predictions of FALSE, but the model misstakenly predicted FALSE for 111 high use values which were actually true, so I would not use this model as the predictive power is subpar.
