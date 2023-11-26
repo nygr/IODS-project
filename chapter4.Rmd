@@ -1,0 +1,122 @@
+# Week 4 exercises
+---
+output: html_document
+date: "2023-11-26"
+---
+
+Here, we use the package "MASS" to load in dataset "Boston", which contains information about Housing Values in Suburbs of Boston.
+This dataframe has 506 rows and 14 columns. Contains numeric and integer variables.
+
+
+```{r}
+library(MASS)
+data("Boston")
+
+str(Boston)
+dim(Boston)
+
+summary(Boston)
+pairs(Boston)
+```
+
+
+Here we show a graphical overview of the data and show summaries of the variables in the data. We want to use the data in a long format and for this we use melt(), then we examine the distributions of the variables and the correlations between them.
+
+We see that most of the variables are not normally distributed, rm seems to be the most normally distrubted variable. Other variables have two peaked distributions (e.g indus) and some are left skewed (e.g. dis), and other right skewed (e.g. ptratio). 
+
+From the correlation plots we can see that istat and medv, age and dis, nox and dis, indus and dis are all strongly negatively correlated. Rad and tax are strongly positively correlated. The plot is counterintuitive because according to the legend red is -1 (neg) and blue is 1 (pos)
+```{r}
+library(tidyr)
+library(corrplot)
+library(ggplot2)
+library(dplyr)
+require(reshape2)
+
+
+data_boston_long <- melt(Boston)
+
+ggplot(data = data_boston_long, aes(x = value)) + 
+stat_density() + 
+facet_wrap(~variable, scales = "free")
+
+mat_Boston <- cor(Boston) %>% round(2)
+corrplot(mat_Boston, method = "circle", type = "upper", cl.pos = "b", tl.pos = "d", tl.cex = 0.6)
+ 
+```
+
+We then scale the data and observing the summary of the new data, we see that the means of the new data are 0 when before they ranged from 0-68. Then we create a variable for crime and add it to the data. Finally we divide the data to test and train sets
+```{r}
+# center and standardize variables
+scaled_data <- scale(Boston)
+
+# print summaries of the scaled variables
+summary(scaled_data) # note that now all means are 0 as supposed to 
+
+# Object is matrix so change to df
+scaled_dat_df <- as.data.frame(scaled_data)
+
+# Create categorical "crime" variable and add it to the dataset
+bins <- quantile(scaled_dat_df$crim)
+crime <- cut(scaled_dat_df$crim, breaks = bins, include.lowest = TRUE, label = c("low", "med_low", "med_high", "high"))
+scaled_dat_df <- dplyr::select(scaled_dat_df, -crim)
+scaled_dat_df <- data.frame(scaled_dat_df, crime)
+
+#Create train and test sets of the data such that 80% of the data is in the train set
+n <- nrow(scaled_dat_df)
+ind <- sample(n,  size = n * 0.8)
+train <- scaled_dat_df[ind,]
+test <- scaled_dat_df[-ind,]
+```
+
+
+Next, we fit a linear discriminant analysis (lda) on the train set. We are using our created catergorical crime rate as the target variable and all the other variables in the dataset as predictor variables, and then we draw a bi-plot.
+```{r}
+#Fit lda on train set
+lda.fit <- lda(crime ~ . , data = train)
+
+# Draw bi-plot
+lda.arrows <- function(x, myscale = 1, arrow_heads = 0.1, color = "red", tex = 0.75, choices = c(1,2)){
+  heads <- coef(x)
+  graphics::arrows(x0 = 0, y0 = 0, 
+         x1 = myscale * heads[,choices[1]], 
+         y1 = myscale * heads[,choices[2]], col=color, length = arrow_heads)
+  text(myscale * heads[,choices], labels = row.names(heads), 
+       cex = tex, col=color, pos=3)
+}
+classes <- as.numeric(train$crime)
+plot(lda.fit, dimen = 2)
+lda.arrows(lda.fit, myscale = 1)
+
+```
+
+We used the test data to predict crime rates and then compared it to the true rates. In the table we see that the analysis performs well for the low and high crime rate categories, especially is predcited correctly all for the high crime rate category but in the med_low and med_high it seems to perform more poorly. 
+```{r}
+#Save crime rates from the test data set and then drop the varibale from test df
+test_classes <- test$crime
+test <- dplyr::select(test, -crime)
+
+#Predict classes with test data and cross tabulate to compare with the real classes
+lda.prediction <- predict(lda.fit, newdata = test)
+table(correct = test_classes, predicted = lda.prediction$class)
+```
+
+
+We reload the data, calculate euclidian distance and run k means. Optimal number of clusters I would say is 6, as this is where the curve flattens off
+```{r}
+# Load and scale data, caluclate euclidian distances
+data("Boston")
+scaled_data <- scale(Boston)
+euclidian_dist <- dist(scaled_data)
+
+# Determine the number of clusters and run k means
+set.seed(246)
+k_max <- 20
+twcss <- sapply(1:k_max, function(k){kmeans(scaled_data, k)$tot.withinss})
+qplot(x = 1:k_max, y = twcss, geom = 'line')
+km <- kmeans(scaled_data, centers = 6)
+
+# Visualize results
+pairs(scaled_data, col = km$cluster)
+
+```
+
