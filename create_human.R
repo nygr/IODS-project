@@ -1,7 +1,10 @@
 setwd("/Users/nygrpetr/Desktop/iods/iods_petra/data/")
 library(readr)
+library(dplyr)
 hd <- read_csv("https://raw.githubusercontent.com/KimmoVehkalahti/Helsinki-Open-Data-Science/master/datasets/human_development.csv")
 gii <- read_csv("https://raw.githubusercontent.com/KimmoVehkalahti/Helsinki-Open-Data-Science/master/datasets/gender_inequality.csv", na = "..")
+
+### NOTE: Week 5 data wrangling continues from line 58 #####
 
 
 #Explore datasets
@@ -55,4 +58,36 @@ human <- inner_join(gii, hd, by="country")
 #Save data
 write.csv(human, "human.csv")
 
+########## WEEK 5
+
+human <- read.csv("data/human.csv")
+
+#Human dataset contains data on human development index, giving us information about human development in different countries
+#There is an extra column for row number "X" so lets remove that
+human$X <- NULL
+dim(human)
+#[1] 195  19
+str(human)
+# Data frame containing numeric, character and integer variables
+
+#Remove unneeded variables and keep only the following: 
+# "Country", "Edu2.FM", "Labo.FM", "Edu.Exp", "Life.Exp", "GNI", "Mat.Mor", "Ado.Birth", "Parli.F" 
+keep <- c("country", "f_m_edu", "f_m_labour", "expected_edu", "life_exp", "gni", "maternal_mortality", "adolesc_birth", "repr_parl")
+human <- select(human, one_of(keep))
+
+# Remove  rows with missing values.
+library(data.table)
+human <- na.omit(human)
+dim(human)
+#[1] 162   9
+
+#Remove regions
+regions <- c("Europe and Central Asia", "East Asia and the Pacific", "Latin America and the Caribbean","Sub-Saharan Africa", "Arab States", "World", "South Asia")
+human_filtered <- human[!human$country %in% regions,]
+dim(human_filtered)
+#[1] 155   9
+
+#Save
+## I didnt want to overwrite in case I made some mistake
+write.csv(human_filtered, "human_filtered.csv")
 

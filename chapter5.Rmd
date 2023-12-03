@@ -1,0 +1,99 @@
+# Week 5 Exercises
+---
+output: html_document
+date: "2023-12-03"
+---
+First we read in the data and explore structure and dimensions, then we set country names to rownames. After that we show a graphical overview and observe distributions and correlations between the variables.
+
+```{r}
+#Read in data, explore, and make country col -> rownames
+human <- read.csv("human_filtered.csv")
+dim(human)
+#There is an extra column for row number "X" so lets remove that
+human$X <- NULL
+str(human)
+rownames(human) <- human$country
+human$country <- NULL
+
+#Graphical overview
+library(GGally) 
+ggpairs(human)
+summary(human)
+```
+
+Observing the results of ggpairs, we see that only expected years of education (expected_edu) is the only variable following a normal distribution, other variables seem to be skewed. Life expectancy and expected years of education are strongly correlated positively, other positively correlated pairs of variables are expected edu and gni, maternal mortality ratio and adolescent birth rate.
+
+
+Next we perform a principal component analysis which is a form of dimensionality reduction and tells us how much of the variablity of the data is explained by some of the variables, or principal components and draw a biplot to visualize the results.
+
+```{r}
+#PCA and summary
+pca_human <- prcomp(human)
+s <- summary(pca_human)
+pca_pr <- round(1*s$importance[2, ], digits = 5)
+print(pca_pr)
+pc_lab <- paste0(names(pca_pr), " (", pca_pr, "%)")
+
+#Biplot
+biplot(pca_human, cex = c(1, 1), col = c("grey40", "blue"), xlab = pc_lab[1], ylab = pc_lab[2])
+```
+The PCA with the raw data shows that one variable, gni, explains 99% of the variability in the data. 
+
+Next we standardize the data and repeat the analysis
+
+```{r}
+#Scale data
+human_scaled <- scale(human)
+
+#Repeat PCA with scaled data
+pca_human_s <- prcomp(human_scaled)
+s_scaled <- summary(pca_human_s)
+pca_pr_scaled <- round(1*s_scaled$importance[2, ], digits = 5)
+print(pca_pr_scaled)
+pc_lab_scaled <- paste0(names(pca_pr_scaled), " (", pca_pr, "%)")
+
+# Biplot
+fig.width=10
+biplot(pca_human_s, cex = c(0.8, 1), col = c("grey40", "blue"), xlab = pc_lab_scaled[1], ylab = pc_lab_scaled[2])
+
+```
+With the scaled data, PC1 explains 53% of the variability and PC2 explains 16% of the variability. This differs from the results of raw data, where it seemed like PC1 explained all of the variability (99%). In the raw data, gni so gross national income explained all the variability. After standardization, female to male labour ratio and Percent Representation in Parliament explained variability on the y axis, and other variables explain the variance of x axis so PC1.
+
+
+Now we continue with tea dataset from FactoMine package, we explore the data and then perform an MCA analysis
+
+```{r}
+#Load data, explore structure and dimensions
+tea <- read.csv("https://raw.githubusercontent.com/KimmoVehkalahti/Helsinki-Open-Data-Science/master/datasets/tea.csv", stringsAsFactors = TRUE)
+str(tea)
+dim(tea)
+View(tea)
+
+#Visualize the data
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+#select some columns to visualize because there are many hard to visualise and imo some useless columns
+tea_cols <- dplyr::select(tea, Tea, How, sugar, where, healthy)
+pivot_longer(tea_cols, cols = everything()) %>% 
+  ggplot(aes(value)) + geom_bar() + facet_wrap("name", scales = "free") + theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8))
+
+```
+
+Now we perform Multiple Correspondence Analysis (MCA) on the tea data. 
+
+```{r}
+#MCA
+library(FactoMineR)
+library(factoextra)
+mca_tea <- MCA(tea_cols, graph = FALSE)
+summary(mca_tea)
+
+#Visualize
+plot(mca_tea, invisible=c("ind"), graph.type = "classic", habillage = "quali")
+fviz_mca_biplot(mca_tea, 
+               repel = TRUE, # Avoid text overlapping (slow if many point)
+               ggtheme = theme_minimal())
+```
+
+From the results we look at the variables with positive dimensions such as black, no sugar, other, lemon, milk which are the most linked, and negative varibales are the least linked such as green, tea shop, chain store. Variance explained by dimension one and dimension two was 15.34% and 14.66%, respectively. No clear clusters appear on the factor map. 
