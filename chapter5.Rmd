@@ -77,7 +77,6 @@ library(tidyr)
 tea_cols <- dplyr::select(tea, Tea, How, sugar, where, healthy)
 pivot_longer(tea_cols, cols = everything()) %>% 
   ggplot(aes(value)) + geom_bar() + facet_wrap("name", scales = "free") + theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8))
-
 ```
 
 Now we perform Multiple Correspondence Analysis (MCA) on the tea data. 
