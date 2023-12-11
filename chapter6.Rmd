@@ -1,0 +1,192 @@
+# Week 6 Exercises
+---
+output: html_document
+date: "2023-12-11"
+---
+Longitudinal data
+
+Part 1: RATS
+
+RATS dataset is data from a study conducted on 3 groups of rats where rats were fed different diets and body weights were used to measure the growth of the rats, the objective was to find out whether the different diets had effects on rat growth
+
+```{r}
+#We read in the data and convert id and group to factors, convert to long format
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+RATS <- read.table("https://raw.githubusercontent.com/KimmoVehkalahti/MABS/master/Examples/data/rats.txt", header = TRUE, sep = '\t')
+RATS$ID <- factor(RATS$ID)
+RATS$Group <- factor(RATS$Group)
+
+RATS_long <- pivot_longer(RATS, cols = -c(ID, Group), 
+                      names_to = "groups",
+                      values_to = "wd") %>% 
+  mutate(Time = as.integer(substr(groups, 3, 4))) %>%
+  arrange(Time)
+```
+
+Next we visualize the data, we see that the rats all have a tendency to grow during the experiment. The initial bodyweights of rats in group 3 seem to be the highest and in group 1 the lowest. Based on this it seems like there is an outlier in group 2 but lets check that later. 
+
+```{r}
+ggplot(RATS_long, aes(x = Time, y = wd, linetype = ID)) +
+  geom_line() +
+  scale_linetype_manual(values = rep(1:10, times = 4)) +
+  facet_grid(. ~ Group, labeller = label_both) +
+  theme(legend.position = "none") + 
+  scale_y_continuous(limits = c(min(RATS_long$wd), max(RATS_long$wd)))
+```
+There appears to be a tracking phenomenon where rats with higher weight in the beginning seem to gain more weight and thus have higher weights throughout the study - a tracking phenomenon. In an ideal situation the rats would be split into groups where each group has a similar weight distribution not that there are huge differences in the starting weights. Could there be some biological reason why some mice are heavier to start off with and thus more likely to gain weight -something to do with genetics perhaps?
+
+Now we standardize the data in order to more clearly see the tracking phenomenon
+
+```{r}
+library(dplyr)
+library(tidyr)
+
+#Now we standardize and repeat the plot
+RATS_long <- RATS_long %>%
+  group_by(Time) %>%
+  mutate(stdwd = scale(wd)) %>%
+  ungroup()
+
+ggplot(RATS_long, aes(x = Time, y = stdwd, linetype = ID)) +
+  geom_line() +
+  scale_linetype_manual(values = rep(1:10, times = 4)) +
+  facet_grid(. ~ Group, labeller = label_both) +
+  scale_y_continuous(name = "standardized wd")
+```
+
+Lets now plot the means and standard deviations for each treatment group at each time point. The following line plot is difficult to interpret because the baseline weights are so different, but it seems, on average over the course of the diet time group 2 rats gained the most weight. However, group 2 has the most standard deviations, which could possibly be due to the possible outlier (rat number 12), but since there are so few rats in that group lets just leave it for now. 
+
+```{r}
+n <- table(RATS_long$Group)
+
+RATSS <- RATS_long %>%
+  group_by(Group, Time) %>%
+  summarise(mean =mean(wd), se = sd(wd)) %>%
+  ungroup()
+
+ggplot(RATSS, aes(x = Time, y = mean, linetype = Group, colour = Group)) +
+  geom_line() +
+  scale_linetype_manual(values = c(1,2,3)) +
+  geom_point(size=3) +
+  scale_shape_manual(values = c(1,2,3)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se, linetype="1"), width=0.3) +
+  theme(legend.position = c(0.8,0.4)) +
+  scale_y_continuous(name = "mean rat weight +/- sd(rat weight)")
+
+```
+
+Now we calculate a summary measure, removing observation from the baseline so from week 1 and draw boxplots with it. From these boxplots we see that in addition to the outlier in group 2 there are also outliers in groups 1 and 3. Since the outlier in group 2 is very obvious, moreso than groups 1 and 3 lets remove it, also its easier to remove.
+
+```{r}
+RATS_filt <- RATS_long %>%
+  filter(Time > 1) %>%
+  group_by(Group, ID) %>%
+  summarise(mean = mean(wd)) %>%
+  ungroup()
+
+ggplot(RATS_filt, aes(x = Group, y = mean)) +
+  geom_boxplot() +
+  stat_summary(fun = "mean", geom = "point", shape = 23, size = 4, fill = "white") +
+  scale_y_continuous(name = "mean(wd), weeks 1-9")
+
+RATS_filt <- RATS_filt %>% filter(mean < 580)
+
+```
+
+Based on visualisation it seems that there is a difference between the diets offered to the rats, but we need to test this with a statistical test. Based on the t test, all of the groups tested against each other have significant differences. However, I would not trust this result very much as there were very few samples per group, some outliers existed and the baseline characteristics of the rats were different which may have underlying differences in biology / genetics / metabolics
+
+```{r}
+t.test(mean ~ Group, data = filter(RATS_filt,Group!=3), var.equal = TRUE)
+t.test(mean ~ Group, data = filter(RATS_filt,Group!=2), var.equal = TRUE)
+t.test(mean ~ Group, data = filter(RATS_filt,Group!=1), var.equal = TRUE)
+```
+
+
+Part 2: BPRS
+
+This dataset contains data on 40 subject and their rating on the brief psychiatric rating scale (used to evaluate schizophrenia) before and after treatment (split into 2 treatment groups). The scale assessed different symptoms such as hallucinations from a scale of 1(low) to 7(high). 
+
+First we read in the data and re-factor the variables
+
+```{r}
+BPRS_long <- read.csv("/Users/nygrpetr/Desktop/iods/iods_petra/data/bprs_long.csv")
+
+BPRS_long$treatment <- factor(BPRS_long$treatment)
+BPRS_long$subject <- factor(BPRS_long$subject)
+
+glimpse(BPRS_long)
+```
+
+Next we visualize the data, upon visualization there may be an outlier in treatment group 2 but overall they appear to be quite similar
+```{r}
+ggplot(BPRS_long, aes(x = week, y = bprs, linetype = subject)) +
+  geom_line() +
+  scale_linetype_manual(values = rep(1:10, times=4)) +
+  facet_grid(. ~ treatment, labeller = label_both) +
+  theme(legend.position = "none") + 
+  scale_y_continuous(limits = c(min(BPRS_long$bprs), max(BPRS_long$bprs)))
+```
+Next, we will fit a linear regression model and ignore the fact that the observations are from the same subject but assume they are separate. With this model we see that treatment does not seem to have an effect but time does have a significant effect 
+
+
+```{r}
+fit <- lm(bprs ~ treatment + week, data = BPRS_long)
+summary(fit)
+```
+
+Next, because the observations are not actually independant, we fit a random intercept model with ID as the the random effect 
+
+```{r}
+#install.packages("lme4")
+library(lme4)
+
+BPRS_random <- lmer(bprs ~ week + treatment + (1 | subject), data = BPRS_long, REML = FALSE)
+summary(BPRS_random)
+```
+
+Next we try a random intercept and random slope model on the data
+
+```{r}
+# create a random intercept and random slope model
+BPRS_random1 <- lmer(bprs ~ week + treatment + (week | subject), data = BPRS_long, REML = FALSE)
+summary(BPRS_random1)
+
+```
+
+
+Then we use anova to test which model fits the data better, 
+```{r}
+anova(BPRS_random1, BPRS_random)
+```
+The random intercept and random slope model has significant p value and thus fits the data better.
+
+Next we fit a linear mixed random slope and intercept model with interaction between time and treatment. Then again we use anova to test which one fits the data better, the improvement doesnt really do much, no significant difference
+
+```{r}
+BPRS_random2 <- lmer(bprs ~ week + treatment + (week | subject) + week * treatment, data = BPRS_long, REML = FALSE)
+summary(BPRS_random2)
+anova(BPRS_random2, BPRS_random1)
+```
+
+Now lets plot the fitted values, with the fitted values it seems that the BPRS scores of both groups seem to decrease with time thus both treatments are working to reduce schizophrenic symptoms. 
+```{r}
+BPRS_long$fit <- fitted(BPRS_random2)  
+
+ggplot(BPRS_long, aes(x = week, y = bprs, group = subject)) +
+  geom_line(aes(color = treatment)) +
+  scale_x_continuous(name = "Time", breaks = seq(0, 8, 2)) +
+  scale_y_continuous(name = "BPRS") +
+  theme(legend.position = "top")
+
+ggplot(BPRS_long, aes(x = week, y = fit, group = subject)) +
+  geom_line(aes(color = treatment)) +
+  scale_x_continuous(name = "Time", breaks = seq(0, 8, 2)) +
+  scale_y_continuous(name = "Fitted BPRS") +
+  theme(legend.position = "top")
+```
+
+
+
+
